@@ -1,0 +1,5 @@
+#!/system/bin/sh
+GRAPTHEAD=true
+. /data/adb/magisk/util_functions.sh
+install_module
+exit 0

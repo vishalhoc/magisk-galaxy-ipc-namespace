@@ -1,0 +1,43 @@
+#!/system/bin/sh
+# ================================================================
+# Droidspaces Container Runner (Galaxy IPC Enabler)
+# Author: hoc
+# ================================================================
+
+if [ -f /system/lib64/libipc_ns_shim.so ]; then
+    export LD_PRELOAD="/system/lib64/libipc_ns_shim.so${LD_PRELOAD:+:$LD_PRELOAD}"
+elif [ -f /data/adb/modules/galaxy-ipc-namespace/system/lib64/libipc_ns_shim.so ]; then
+    export LD_PRELOAD="/data/adb/modules/galaxy-ipc-namespace/system/lib64/libipc_ns_shim.so${LD_PRELOAD:+:$LD_PRELOAD}"
+elif [ -f /data/local/tmp/libipc_ns_shim.so ]; then
+    export LD_PRELOAD="/data/local/tmp/libipc_ns_shim.so${LD_PRELOAD:+:$LD_PRELOAD}"
+fi
+export DROIDSPACES_IPC_ENABLED=1
+
+if [ $# -eq 0 ]; then
+    echo "Usage: droidspaces-run <rootfs_path> [command...]"
+    echo "Example: droidspaces-run /data/local/ubuntu /bin/bash"
+    exit 1
+fi
+
+ROOTFS="$1"
+shift
+
+if [ ! -d "$ROOTFS" ]; then
+    echo "[-] Error: RootFS directory '$ROOTFS' does not exist."
+    exit 1
+fi
+
+# Prepare container environment
+mkdir -p "$ROOTFS/dev" "$ROOTFS/proc" "$ROOTFS/sys" "$ROOTFS/dev/pts" "$ROOTFS/dev/shm" 2>/dev/null
+
+# Mount essentials if not mounted
+mountpoint -q "$ROOTFS/proc" || mount -t proc proc "$ROOTFS/proc" 2>/dev/null
+mountpoint -q "$ROOTFS/sys" || mount -t sysfs sysfs "$ROOTFS/sys" 2>/dev/null
+mountpoint -q "$ROOTFS/dev" || mount -o bind /dev "$ROOTFS/dev" 2>/dev/null
+mountpoint -q "$ROOTFS/dev/pts" || mount -t devpts devpts "$ROOTFS/dev/pts" 2>/dev/null
+mountpoint -q "$ROOTFS/dev/shm" || mount -t tmpfs -o mode=1777,size=512m tmpfs "$ROOTFS/dev/shm" 2>/dev/null
+
+CMD="${*:-/bin/bash}"
+echo "[*] Launching container in '$ROOTFS' with isolated namespaces (Mount, UTS, PID, Net, IPC)..."
+
+exec /system/bin/toybox unshare -m -u -p -n -i chroot "$ROOTFS" $CMD

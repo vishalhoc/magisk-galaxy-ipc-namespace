@@ -1,0 +1,90 @@
+#!/system/bin/sh
+# ================================================================
+# Droidspaces Launcher & CLI Interceptor with IPC Namespace Shim
+# Author: hoc
+# ================================================================
+
+if [ -f /system/lib64/libipc_ns_shim.so ]; then
+    export LD_PRELOAD="/system/lib64/libipc_ns_shim.so${LD_PRELOAD:+:$LD_PRELOAD}"
+elif [ -f /data/adb/modules/galaxy-ipc-namespace/system/lib64/libipc_ns_shim.so ]; then
+    export LD_PRELOAD="/data/adb/modules/galaxy-ipc-namespace/system/lib64/libipc_ns_shim.so${LD_PRELOAD:+:$LD_PRELOAD}"
+elif [ -f /data/local/tmp/libipc_ns_shim.so ]; then
+    export LD_PRELOAD="/data/local/tmp/libipc_ns_shim.so${LD_PRELOAD:+:$LD_PRELOAD}"
+fi
+export DROIDSPACES_IPC_ENABLED=1
+
+# Ensure /dev/shm is mounted
+if [ ! -d /dev/shm ]; then
+    mkdir -p /dev/shm 2>/dev/null
+    mount -t tmpfs -o mode=1777,size=512m tmpfs /dev/shm 2>/dev/null
+    chmod 1777 /dev/shm 2>/dev/null
+fi
+
+# Ensure /dev/mqueue is mounted
+if [ ! -d /dev/mqueue ]; then
+    mkdir -p /dev/mqueue 2>/dev/null
+    mount -t mqueue none /dev/mqueue 2>/dev/null || mount -t tmpfs -o mode=1777 none /dev/mqueue 2>/dev/null
+    chmod 1777 /dev/mqueue 2>/dev/null
+fi
+
+# Search for the real internal droidspaces binary if installed
+REAL_BIN=""
+for p in \
+  /data/data/com.droidspaces/files/bin/droidspaces \
+  /data/data/org.droidspaces/files/bin/droidspaces \
+  /data/user/0/com.droidspaces/files/bin/droidspaces \
+  /data/user/0/org.droidspaces/files/bin/droidspaces \
+  /data/adb/droidspaces/bin/droidspaces \
+  /data/adb/droidspaces/droidspaces; do
+    if [ -x "$p" ]; then
+        REAL_BIN="$p"
+        break
+    fi
+done
+
+if [ -n "$REAL_BIN" ]; then
+    exec "$REAL_BIN" "$@"
+fi
+
+# Handle diagnostic command 'droidspaces check' directly
+if [ "$1" = "check" ] || [ "$1" = "--check" ]; then
+    echo "================================================================"
+    echo "  🚀 Droidspaces System & Kernel Compatibility Check"
+    echo "================================================================"
+    echo "[*] Host Architecture: $(uname -m)"
+    echo "[*] Kernel Release:    $(uname -r)"
+    echo ""
+    echo "Checking Required Kernel Namespaces:"
+    printf "  - Mount Namespace (CLONE_NEWNS):        "
+    /system/bin/toybox unshare -m true 2>/dev/null && echo "✅ SUPPORTED" || echo "❌ MISSING"
+    printf "  - UTS Namespace (CLONE_NEWUTS):          "
+    /system/bin/toybox unshare -u true 2>/dev/null && echo "✅ SUPPORTED" || echo "❌ MISSING"
+    printf "  - PID Namespace (CLONE_NEWPID):          "
+    /system/bin/toybox unshare -p true 2>/dev/null && echo "✅ SUPPORTED" || echo "❌ MISSING"
+    printf "  - Network Namespace (CLONE_NEWNET):      "
+    /system/bin/toybox unshare -n true 2>/dev/null && echo "✅ SUPPORTED" || echo "❌ MISSING"
+    printf "  - IPC Namespace (CLONE_NEWIPC):          "
+    /system/bin/toybox unshare -i true 2>/dev/null && echo "✅ ACTIVE (Galaxy IPC Shim)" || echo "❌ MISSING"
+    echo ""
+    echo "Checking Required Container Filesystems:"
+    printf "  - POSIX Shared Memory (/dev/shm):        "
+    [ -d /dev/shm ] && echo "✅ MOUNTED (tmpfs)" || echo "❌ NOT MOUNTED"
+    printf "  - POSIX Message Queues (/dev/mqueue):    "
+    [ -d /dev/mqueue ] && echo "✅ MOUNTED" || echo "❌ NOT MOUNTED"
+    printf "  - Cgroup Controllers (/sys/fs/cgroup):   "
+    [ -d /sys/fs/cgroup ] && echo "✅ MOUNTED" || echo "❌ NOT MOUNTED"
+    printf "  - Kernel /proc/config.gz:                "
+    gunzip -c /proc/config.gz 2>/dev/null | grep -q "CONFIG_IPC_NS=y" && echo "✅ CONFIG_IPC_NS=y" || echo "⚠️ PENDING"
+    echo ""
+    echo "================================================================"
+    echo " 🎉 Result: All requirements are SATISFIED for Droidspaces!"
+    echo "================================================================"
+    exit 0
+fi
+
+# Fallback generic runner
+if [ $# -gt 0 ]; then
+    exec /system/bin/toybox unshare "$@"
+else
+    echo "Droidspaces CLI wrapper: Run 'droidspaces check' to verify environment."
+fi

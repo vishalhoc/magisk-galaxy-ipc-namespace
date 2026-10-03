@@ -1,0 +1,4 @@
+# Enable Linux namespace and container optimizations
+persist.sys.namespaces.ipc=1
+persist.sys.droidspaces.enabled=1
+ro.config.container_support=true

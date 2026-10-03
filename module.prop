@@ -1,0 +1,7 @@
+id=galaxy-ipc-namespace
+name=Galaxy IPC Namespace & Droidspaces Enabler
+version=v1.0
+versionCode=100
+author=hoc
+description=Enables Linux IPC namespace (CONFIG_IPC_NS) emulation, syscall interception, patched /proc/config.gz, POSIX message queues (/dev/mqueue), shared memory (/dev/shm), and cgroups for full Droidspaces & Linux container support on Samsung Galaxy M32 5G (MT6853).
+minMagisk=24000

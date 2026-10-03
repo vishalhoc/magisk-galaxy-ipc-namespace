@@ -1,0 +1,8 @@
+allow untrusted_app self capability { sys_admin net_admin net_raw };
+allow priv_app self capability { sys_admin net_admin net_raw };
+allow shell self capability { sys_admin net_admin net_raw sys_chroot };
+allow system_server self capability sys_admin;
+allow untrusted_app tmpfs dir { create read write open getattr setattr add_name remove_name rmdir mounton };
+allow priv_app tmpfs dir { create read write open getattr setattr add_name remove_name rmdir mounton };
+allow untrusted_app cgroup dir { create read write open getattr add_name };
+allow untrusted_app cgroup file { create read write open getattr setattr };

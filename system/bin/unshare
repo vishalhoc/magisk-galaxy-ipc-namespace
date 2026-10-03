@@ -1,0 +1,11 @@
+#!/system/bin/sh
+# Transparent IPC Namespace wrapper for Android Toybox unshare
+# Intercepts CLONE_NEWIPC via libipc_ns_shim.so
+if [ -f /system/lib64/libipc_ns_shim.so ]; then
+    export LD_PRELOAD="/system/lib64/libipc_ns_shim.so${LD_PRELOAD:+:$LD_PRELOAD}"
+elif [ -f /data/adb/modules/galaxy-ipc-namespace/system/lib64/libipc_ns_shim.so ]; then
+    export LD_PRELOAD="/data/adb/modules/galaxy-ipc-namespace/system/lib64/libipc_ns_shim.so${LD_PRELOAD:+:$LD_PRELOAD}"
+elif [ -f /data/local/tmp/libipc_ns_shim.so ]; then
+    export LD_PRELOAD="/data/local/tmp/libipc_ns_shim.so${LD_PRELOAD:+:$LD_PRELOAD}"
+fi
+exec /system/bin/toybox unshare "$@"
